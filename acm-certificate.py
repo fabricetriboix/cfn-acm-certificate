@@ -8,6 +8,9 @@ import datetime
 import time
 import json
 import requests
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
+import binascii
 
 
 def handler(event, context):
@@ -30,10 +33,10 @@ def handler(event, context):
         send_response(event, True, "Success", arn)
     except Exception as e:
         print(f"ERROR: {str(e)}")
-        send_response(event, False, str(e), "")
+        send_response(event, False, str(e))
 
 
-def handle_request(event)
+def handle_request(event):
     request_type = event['RequestType']
     if request_type == "Create":
         arn = create_cert(event)
@@ -53,7 +56,7 @@ def create_cert(event):
 
     # Request the certificate with DNS validation
 
-    unique_token = event['StackId'] + event['RequestId']
+    unique_token = sha256(event['StackId'] + event['RequestId'])
     args = event['ResourceProperties']
     options = { 'CertificateTransparencyLoggingPreference': "DISABLED" }
     if 'Options' in args and 'CertificateTransparencyLoggingPreference' in args['Options']:
@@ -65,7 +68,7 @@ def create_cert(event):
 
     print(f"Sending certificate creation request to ACM for \"args['DomainName']\"")
     response = acm.request_certificate(
-        DomainName=args['DomainName']
+        DomainName=args['DomainName'],
         ValidationMethod="DNS",
         SubjectAlternativeNames=args.get('SubjectAlternativeNames', []),
         IdempotencyToken=unique_token,  # Handle retries from CloudFormation
@@ -209,17 +212,26 @@ def delete_cert(event):
     return arn
 
 
-def send_response(event, success, msg, arn):
+def send_response(event, success, msg, arn=None):
     response = {
         'Status': "SUCCESS" if success else "FAILED",
         'Reason': msg,
-        'PhysicalResourceId': arn,
         'StackId': event['StackId'],
         'RequestId': event['RequestId'],
         'LogicalResourceId': event['LogicalResourceId']
     }
+    if arn:
+        response['PhysicalResourceId'] = arn
+
     data = json.dumps(response)
     headers = {
         'Content-Type': ""
     }
     requests.put(event['ResponseURL'], headers=headers, data=data)
+
+
+def sha256(s):
+    digest = hashes.Hash(hashes.SHA256(), default_backend())
+    digest.update(s.encode("utf8"))
+    h = digest.finalize()
+    return binascii.hexlify(h).decode("utf8")

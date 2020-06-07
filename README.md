@@ -23,6 +23,9 @@ $ aws --profile YOUR_PROFILE lambda create-function \
     --runtime python3.7 --zip-file fileb://./acm-certificate.zip \
     --handler acm-certificate.handler
 
+I would strongly suggest you keep the timeout at least five minutes
+(300 seconds).
+
 How to use the custom resource?
 ===============================
 

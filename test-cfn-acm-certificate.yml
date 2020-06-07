@@ -1,0 +1,52 @@
+Parameters:
+  AcmCertificateLambdaArn:
+    Type: String
+    Description: >
+      ARN of the Lambda function that implements the backend of the custom
+      resource
+    MinLength: 1
+
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: ID of the hosted zone in Route53
+    MinLength: 1
+
+  DomainName:
+    Type: String
+    Description: >
+      Main domain name for the certificate; must be the same domain as the
+      hosted zone, or a subdomain
+    MinLength: 1
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: { default: Parameters }
+        Parameters:
+          - AcmCertificateLambdaArn
+          - HostedZoneId
+          - DomainName
+
+    ParameterLabels:
+      AcmCertificateLambdaArn: { default: ACM certificate Lambda ARN }
+      HostedZoneId: { default: Hosted zone ID }
+      DomainName: { default: Domain name }
+
+Resources:
+  Certificate:
+    Type: Custom::Certificate
+    Properties:
+      ServiceToken: !Ref AcmCertificateLambdaArn
+      DomainName: !Ref DomainName
+      HostedZoneId: !Ref HostedZoneId
+      SubjectAlternativeNames:
+        - test1.example.com
+        - test2.example.com
+      CertificateTags:
+        - Key: Name
+          Value: test certificate
+
+Outputs:
+  CertificateArn:
+    Description: ARN of the created ACM certificate
+    Value: !Ref Certificate
